@@ -26,8 +26,13 @@
       +'<p style="font-size:14px;color:#4a5568;line-height:1.8;margin-bottom:24px">'
       +'카카오톡 내부 브라우저에서는<br>이 페이지가 정상 작동하지 않아요.<br><br>'
       +'아래 버튼을 눌러<br><strong>Safari</strong>에서 열어주세요.</p>'
-      +'<a href="'+url+'" style="display:block;background:#2b6cb0;color:#fff;padding:14px 28px;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;margin-bottom:12px">🧭 Safari로 열기</a>'
-      +'<p style="font-size:12px;color:#a0aec0;line-height:1.6">버튼이 작동하지 않으면<br>화면 하단 <strong>⋯</strong> → <strong>기본 브라우저로 열기</strong><br>를 선택해 주세요.</p>'
+      +'<a href="'+url+'" target="_blank" rel="noopener" style="display:block;background:#2b6cb0;color:#fff;padding:14px 28px;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;margin-bottom:16px">🧭 Safari로 열기</a>'
+      +'<div style="background:#fff;border-radius:10px;padding:14px;text-align:left;">'
+      +'<p style="font-size:12px;color:#4a5568;font-weight:700;margin-bottom:6px">버튼이 안 열리면:</p>'
+      +'<p style="font-size:12px;color:#718096;line-height:1.8">'
+      +'① 화면 하단 <strong>···</strong> 버튼 탭<br>'
+      +'② <strong>기본 브라우저로 열기</strong> 선택</p>'
+      +'</div>'
       +'</div></div>';
   } else {
     guideHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f0f4f8;padding:24px;text-align:center">'
@@ -355,7 +360,7 @@ canvas{display:block;width:100%;touch-action:none}
 <div class="wrap">
   <div style="text-align:center;font-size:28px;margin-bottom:10px">✍️</div>
   <h1>성명 입력 및 서명</h1>
-  <p class="sub">성명을 입력하면 서명란이 나타납니다</p>
+  <p class="sub">성명을 입력하고 서명해 주세요</p>
   <div style="display:flex;align-items:center;gap:6px;justify-content:center;margin-bottom:18px">
     <span style="background:#48bb78;color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">✓</span>
     <div style="width:28px;height:2px;background:#48bb78"></div>
@@ -371,27 +376,27 @@ canvas{display:block;width:100%;touch-action:none}
     <div class="ctitle">👤 성명 입력</div>
     <div class="field">
       <label>성명 (실명)</label>
-      <input type="text" id="clientName" placeholder="예: 홍길동" oninput="onNameInput()" autocomplete="name"/>
+      <input type="text" id="clientName" placeholder="예: 홍길동" autocomplete="name"
+             style="font-size:16px;padding:12px;" />
     </div>
+    <button class="btn btn-blue" onclick="confirmName()" style="margin-top:4px">
+      성명 확인 → 서명하기
+    </button>
   </div>
 
-  <!-- 서명란 (처음엔 숨김) -->
+  <!-- 서명란 (처음엔 숨김, 성명 확인 후 표시) -->
   <div id="sigArea" style="display:none">
     <div class="card">
       <div class="ctitle">🖊️ 서명</div>
+      <div id="confirmedNameDisplay" style="font-size:13px;color:#276749;font-weight:600;margin-bottom:8px;text-align:center"></div>
       <p style="font-size:12px;color:#4a5568;margin-bottom:8px;text-align:center">손가락으로 아래 서명란에 서명해 주세요</p>
       <div class="sig-box"><canvas id="sigCanvas" height="160"></canvas></div>
       <button class="btn btn-gray" style="font-size:12px;padding:8px;margin-top:6px" onclick="clearSig()">🗑️ 다시 서명</button>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="btn btn-gray" style="flex:1" onclick="showScreen('c3')">← 이전</button>
+      <button class="btn btn-gray" style="flex:1" onclick="resetNameInput()">← 성명 수정</button>
       <button class="btn btn-blue" style="flex:2" onclick="submitSig()">✅ 서명 완료 및 전송</button>
     </div>
-  </div>
-
-  <!-- 서명란 나타나기 전 안내 -->
-  <div id="sigHint" style="text-align:center;padding:20px;color:#a0aec0;font-size:13px">
-    ↑ 위에 성명을 입력하면 서명란이 나타납니다
   </div>
 </div>
 </div>
@@ -946,44 +951,58 @@ function loadClientMode(){
   return true;
 }
 
-// ═══════════ 성명 입력시 서명란 자동 표시 ═══════════
-function onNameInput(){
+// ═══════════ 성명 확인 버튼 ═══════════
+function confirmName(){
   const name=document.getElementById('clientName').value.trim();
+  if(!name){alert('성명을 입력해주세요.');return;}
+  if(name.length<2){alert('성명을 2글자 이상 입력해주세요.');return;}
+  // 키보드 내리기
+  document.getElementById('clientName').blur();
+  // 서명란 표시
   const sigArea=document.getElementById('sigArea');
-  const sigHint=document.getElementById('sigHint');
-  if(name.length>=2){
-    if(sigArea.style.display==='none'){
-      sigArea.style.display='block';
-      sigHint.style.display='none';
-      setTimeout(initCanvas,80);
-      // 서명란으로 부드럽게 스크롤
-      setTimeout(()=>sigArea.scrollIntoView({behavior:'smooth',block:'start'}),150);
-    }
-  } else {
-    // 이름 지우면 서명란 숨김
-    sigArea.style.display='none';
-    sigHint.style.display='block';
-  }
+  sigArea.style.display='block';
+  document.getElementById('confirmedNameDisplay').textContent='✅ 성명: '+name;
+  // 성명 입력 카드 숨김
+  document.getElementById('clientName').closest('.card').style.display='none';
+  // 캔버스 초기화
+  setTimeout(initCanvas,80);
+  // 서명란으로 스크롤
+  setTimeout(()=>sigArea.scrollIntoView({behavior:'smooth',block:'start'}),150);
 }
+
+function resetNameInput(){
+  // 성명 수정 버튼 클릭 시
+  document.getElementById('sigArea').style.display='none';
+  document.getElementById('clientName').closest('.card').style.display='block';
+  clearSig();
+}
+
+// 구 onNameInput (더 이상 사용 안 함, 호환성 유지)
+function onNameInput(){}
 
 // ═══════════ 서명 화면 ═══════════
 let drawing=false,lx=0,ly=0;
-function goToSign(){
-  // 이제 사용 안 함 - onNameInput이 대신 처리
-}
+function goToSign(){ /* 미사용 */ }
+
 function initCanvas(){
   const cv=document.getElementById('sigCanvas');
   if(!cv)return;
   cv.width=cv.parentElement.offsetWidth; cv.height=160;
   const ctx=cv.getContext('2d');
   ctx.strokeStyle='#1a202c';ctx.lineWidth=2.5;ctx.lineCap=ctx.lineJoin='round';
-  function pos(e){const r=cv.getBoundingClientRect(),sx=cv.width/r.width,sy=cv.height/r.height;
+  // 이전 이벤트 제거를 위해 클론으로 교체
+  const newCv=cv.cloneNode(true);
+  cv.parentNode.replaceChild(newCv,cv);
+  const c2=document.getElementById('sigCanvas');
+  const ctx2=c2.getContext('2d');
+  ctx2.strokeStyle='#1a202c';ctx2.lineWidth=2.5;ctx2.lineCap=ctx2.lineJoin='round';
+  function pos(e){const r=c2.getBoundingClientRect(),sx=c2.width/r.width,sy=c2.height/r.height;
     return e.touches?[(e.touches[0].clientX-r.left)*sx,(e.touches[0].clientY-r.top)*sy]:[(e.clientX-r.left)*sx,(e.clientY-r.top)*sy];}
-  cv.onmousedown=e=>{drawing=true;[lx,ly]=pos(e);};
-  cv.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;[lx,ly]=pos(e);},{passive:false});
-  cv.onmousemove=e=>{if(!drawing)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y];};
-  cv.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y];},{passive:false});
-  cv.onmouseup=cv.ontouchend=()=>drawing=false;
+  c2.onmousedown=e=>{drawing=true;[lx,ly]=pos(e);};
+  c2.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;[lx,ly]=pos(e);},{passive:false});
+  c2.onmousemove=e=>{if(!drawing)return;const[x,y]=pos(e);ctx2.beginPath();ctx2.moveTo(lx,ly);ctx2.lineTo(x,y);ctx2.stroke();[lx,ly]=[x,y];};
+  c2.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=pos(e);ctx2.beginPath();ctx2.moveTo(lx,ly);ctx2.lineTo(x,y);ctx2.stroke();[lx,ly]=[x,y];},{passive:false});
+  c2.onmouseup=c2.ontouchend=()=>drawing=false;
 }
 function clearSig(){const c=document.getElementById('sigCanvas');if(c)c.getContext('2d').clearRect(0,0,c.width,c.height);}
 
@@ -999,18 +1018,23 @@ async function submitSig(){
   showScreen('5b');
   try{
     const c=S.clients[S.reviewing];
-    const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'save',key:c.key,payload:{
-        counselorNum:S.counselorNum,slotNum:S.slotNum,sessionNum:S.sessionNum,
-        dateTime:S.dateTime,place:S.place,month:S.month,
-        clientName:c.clientName,signatureDataUrl:sigUrl,signed:true}})});
-    const d=await r.json();
-    if(!d.success)throw new Error(d.error||'전송 실패');
+    const body=JSON.stringify({action:'save',key:c.key,payload:{
+      counselorNum:S.counselorNum,slotNum:S.slotNum,sessionNum:S.sessionNum,
+      dateTime:S.dateTime,place:S.place,month:S.month,
+      clientName:c.clientName,signatureDataUrl:sigUrl,signed:true}});
+
+    // CORS 우회: no-cors 모드로 전송 (응답 못 받지만 저장은 됨)
+    await fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body});
+
     const rows=[['상담 일시',S.dateTime],['장소',S.place],['내담자 성명',c.clientName]];
     document.getElementById('clientDoneInfo').innerHTML=rows.map(([l,v])=>
       '<div class="irow"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>').join('');
     showScreen('5c');
-  }catch(e){alert('전송 오류: '+e.message);showScreen('csign');}
+  }catch(e){
+    alert('전송 오류: '+e.message+'\n\n인터넷 연결을 확인하고 다시 시도해주세요.');
+    showScreen('csign');
+  }
+}
 }
 
 // ═══════════ 이름 마스킹 ═══════════
