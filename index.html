@@ -4,32 +4,48 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script>
-// 카카오톡 인앱 브라우저 감지 → 외부 브라우저로 강제 전환 (상담사 전용)
+// 카카오톡 인앱 브라우저 감지 → 안내 화면 표시 후 외부 브라우저로 유도
 (function(){
   var ua=navigator.userAgent||'';
   var isKakao=ua.indexOf('KAKAOTALK')>-1||ua.indexOf('KakaoTalk')>-1;
   if(!isKakao)return;
 
   var url=location.href;
+  var isIOS=/iPhone|iPad|iPod/.test(ua);
+  var isAndroid=/Android/.test(ua);
 
-  if(/iPhone|iPad|iPod/.test(ua)){
-    location.href='kakaotalk://launch?url='+encodeURIComponent(url);
-    setTimeout(function(){
-      location.href='safari-https://'+url.replace(/^https?:\/\//,'');
-    },500);
-    document.write('<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f0f4f8;padding:24px;text-align:center"><div><div style="font-size:48px;margin-bottom:16px">🌐</div><h2 style="font-size:18px;color:#1a365d;margin-bottom:10px">외부 브라우저로 열어주세요</h2><p style="font-size:14px;color:#718096;line-height:1.7;margin-bottom:20px">이 페이지는 카카오톡 내부 브라우저에서<br>정상적으로 작동하지 않습니다.<br><br><strong>Safari</strong> 또는 <strong>Chrome</strong>에서 열어주세요.</p><a href="'+url+'" style="display:inline-block;background:#2b6cb0;color:#fff;padding:12px 28px;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none">Safari로 열기</a><br><br><p style="font-size:12px;color:#a0aec0">버튼이 작동하지 않으면 주소를 복사해서<br>Safari 주소창에 붙여넣어 주세요.</p></div></div>');
-    return;
+  if(!isIOS&&!isAndroid)return;
+
+  // 안내 화면을 먼저 표시
+  var guideHTML;
+  if(isIOS){
+    guideHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:-apple-system,sans-serif;background:#f0f4f8;padding:24px;text-align:center">'
+      +'<div style="max-width:320px">'
+      +'<div style="font-size:56px;margin-bottom:16px">🌐</div>'
+      +'<h2 style="font-size:20px;font-weight:700;color:#1a365d;margin-bottom:12px">Safari로 열어주세요</h2>'
+      +'<p style="font-size:14px;color:#4a5568;line-height:1.8;margin-bottom:24px">'
+      +'카카오톡 내부 브라우저에서는<br>이 페이지가 정상 작동하지 않아요.<br><br>'
+      +'아래 버튼을 눌러<br><strong>Safari</strong>에서 열어주세요.</p>'
+      +'<a href="'+url+'" style="display:block;background:#2b6cb0;color:#fff;padding:14px 28px;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;margin-bottom:12px">🧭 Safari로 열기</a>'
+      +'<p style="font-size:12px;color:#a0aec0;line-height:1.6">버튼이 작동하지 않으면<br>화면 하단 <strong>⋯</strong> → <strong>기본 브라우저로 열기</strong><br>를 선택해 주세요.</p>'
+      +'</div></div>';
+  } else {
+    guideHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f0f4f8;padding:24px;text-align:center">'
+      +'<div style="max-width:320px">'
+      +'<div style="font-size:56px;margin-bottom:16px">🌐</div>'
+      +'<h2 style="font-size:20px;font-weight:700;color:#1a365d;margin-bottom:12px">Chrome으로 열어주세요</h2>'
+      +'<p style="font-size:14px;color:#4a5568;line-height:1.8;margin-bottom:24px">'
+      +'카카오톡 내부 브라우저에서는<br>이 페이지가 정상 작동하지 않아요.<br><br>'
+      +'화면 오른쪽 상단 <strong>⋮</strong> 버튼을 눌러<br><strong>다른 브라우저로 열기</strong>를 선택해 주세요.</p>'
+      +'<a href="intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end" '
+      +'style="display:block;background:#2b6cb0;color:#fff;padding:14px 28px;border-radius:12px;font-size:16px;font-weight:700;text-decoration:none;margin-bottom:12px">🌐 Chrome으로 열기</a>'
+      +'<p style="font-size:12px;color:#a0aec0;line-height:1.6">또는 주소를 복사해서<br>Chrome 주소창에 붙여넣어 주세요.</p>'
+      +'</div></div>';
   }
 
-  if(/Android/.test(ua)){
-    var intent='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';
-    location.href=intent;
-    setTimeout(function(){
-      document.open();
-      document.write('<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#f0f4f8;padding:24px;text-align:center"><div><div style="font-size:48px;margin-bottom:16px">🌐</div><h2 style="font-size:18px;color:#1a365d;margin-bottom:10px">외부 브라우저로 열어주세요</h2><p style="font-size:14px;color:#718096;line-height:1.7;margin-bottom:20px">이 페이지는 카카오톡 내부 브라우저에서<br>정상적으로 작동하지 않습니다.<br><br>화면 오른쪽 상단 <strong>⋮ 메뉴</strong>에서<br><strong>\'다른 브라우저로 열기\'</strong>를 선택해주세요.</p><p style="font-size:12px;color:#a0aec0">또는 주소를 복사해서<br>Chrome 주소창에 붙여넣어 주세요.</p></div></div>');
-      document.close();
-    },800);
-  }
+  document.open();
+  document.write(guideHTML);
+  document.close();
 })();
 </script>
 <title>서울 영테크 재무상담 확인서 (상담 청년)</title>
@@ -497,7 +513,7 @@ canvas{display:block;width:100%;touch-action:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // ═══════════ CONFIG ═══════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxdeAgpgCSaPM9LwxvIDTWF7EtfiB_EELWtciFIJpNlPSd8PRpGmfoYV5LTS59_fK2F/exec';
+const GAS_URL = 'YOUR_GAS_WEB_APP_URL';
 const FOLDER_MAP = {
   '5':'1Few0_SZuEdxFcwZ9Fv4hy2UBmVvqIoul',
   '6':'1w8h6cPW97LOW5oTEoSHjqx-f5go8j63R',
