@@ -415,11 +415,12 @@ canvas{display:block;width:100%;touch-action:none}
 <div class="wrap" style="text-align:center;padding-top:40px">
   <div style="font-size:54px;margin-bottom:14px">✅</div>
   <h1 style="margin-bottom:6px">서명 완료!</h1>
-  <p class="sub">서명이 성공적으로 전송되었습니다.<br>상담사의 확인 후 처리됩니다.</p>
+  <p class="sub" id="signedSubtitle">서명이 성공적으로 전송되었습니다.<br>상담사의 확인 후 처리됩니다.</p>
   <div class="card" style="text-align:left;margin-top:16px">
     <div class="ctitle">📄 전송 정보</div>
     <div id="clientDoneInfo"></div>
   </div>
+  <p style="font-size:12px;color:#a0aec0;margin-top:16px">이 화면은 서명이 완료된 후에는<br>다시 서명할 수 없습니다.</p>
 </div>
 </div>
 
@@ -468,6 +469,10 @@ canvas{display:block;width:100%;touch-action:none}
           <option value="30분">30분</option>
         </select>
       </div>
+    </div>
+    <div class="field">
+      <label>상담 장소</label>
+      <input type="text" id="reviewPlace" placeholder="예: 서울시청 3층 302호"/>
     </div>
   </div>
 
@@ -871,6 +876,9 @@ function openReview(idx){
   const minMatch=S.dateTime?S.dateTime.match(/(00분|30분)/):'';
   document.getElementById('reviewMinute').value=minMatch?minMatch[1]:'00분';
 
+  // 장소
+  document.getElementById('reviewPlace').value=S.place||'';
+
   showScreen(6);
 }
 
@@ -934,15 +942,63 @@ function runCycle(){
 }
 
 // ═══════════ CLIENT MODE ═══════════
-function loadClientMode(){
+async function loadClientMode(){
   const p=new URLSearchParams(location.search);
   if(p.get('mode')!=='client')return false;
   S.counselorNum=p.get('c')||'';S.slotNum=p.get('s')||'';S.sessionNum=p.get('n')||'';
   S.dateTime=p.get('d')||'';S.place=p.get('p')||'';S.month=p.get('m')||'';
-  S.clients=[{code:'',key:p.get('k')||'',signed:false,clientName:'',sigUrl:'',uploaded:false}];
+  const key=p.get('k')||'';
+  S.clients=[{code:'',key:key,signed:false,clientName:'',sigUrl:'',uploaded:false}];
   S.reviewing=0;
+
+  // 뒤로가기 차단 초기화
+  history.replaceState(null,'',location.href);
+  window.addEventListener('popstate',()=>{
+    history.pushState(null,'',location.href);
+  });
+
+  // sessionStorage에서 이미 서명 완료됐는지 확인 (같은 탭/세션)
+  if(key && sessionStorage.getItem('signed_'+key)==='1'){
+    _showSignedDoneScreen(key);
+    return true;
+  }
+
+  // GAS 서버에서 이미 서명됐는지 확인 (새 브라우저/탭에서 재접속 대비)
+  if(key){
+    try{
+      const r=await fetch(GAS_URL+'?action=get&key='+encodeURIComponent(key));
+      const d=await r.json();
+      if(d.success && d.payload && d.payload.signed){
+        const rows=[['상담 일시',d.payload.dateTime||S.dateTime],['장소',d.payload.place||S.place],['내담자 성명',d.payload.clientName||'']];
+        sessionStorage.setItem('signed_'+key,'1');
+        sessionStorage.setItem('signed_info_'+key, JSON.stringify(rows));
+        _showSignedDoneScreen(key);
+        return true;
+      }
+    }catch(e){ /* 오프라인 무시 */ }
+  }
+
   showScreen(4); // 내용 확인 1단계부터
   return true;
+}
+
+// 서명 완료 화면 표시 헬퍼
+function _showSignedDoneScreen(key){
+  showScreen('5c');
+  // 재접속 시 안내 문구 변경
+  const subtitleEl=document.getElementById('signedSubtitle');
+  if(subtitleEl) subtitleEl.innerHTML='이미 서명이 완료된 확인서입니다.<br>중복 서명은 처리되지 않습니다.';
+  const info=sessionStorage.getItem('signed_info_'+key)||'';
+  if(info){
+    try{
+      const rows=JSON.parse(info);
+      document.getElementById('clientDoneInfo').innerHTML=rows.map(([l,v])=>
+        '<div class="irow"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>').join('');
+    }catch(e){}
+  } else {
+    document.getElementById('clientDoneInfo').innerHTML=
+      '<div class="irow"><span class="lbl">상태</span><span class="val">이미 서명 완료된 확인서입니다.</span></div>';
+  }
 }
 
 // ═══════════ 성명 확인 버튼 ═══════════
@@ -1025,6 +1081,19 @@ async function submitSig(){
     const rows=[['상담 일시',S.dateTime],['장소',S.place],['내담자 성명',c.clientName]];
     document.getElementById('clientDoneInfo').innerHTML=rows.map(([l,v])=>
       '<div class="irow"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>').join('');
+
+    // 서명 완료 상태 저장 (같은 URL 재접속 시 완료화면 표시)
+    if(c.key){
+      sessionStorage.setItem('signed_'+c.key,'1');
+      sessionStorage.setItem('signed_info_'+c.key, JSON.stringify(rows));
+    }
+
+    // 뒤로가기/새로고침 후 돌아오기 차단
+    history.replaceState(null,'',location.href);
+    window.addEventListener('popstate',()=>{
+      history.pushState(null,'',location.href);
+    });
+
     showScreen('5c');
   }catch(e){
     alert('전송 오류: '+e.message+'\n\n인터넷 연결을 확인하고 다시 시도해주세요.');
@@ -1051,6 +1120,7 @@ async function doUpload(){
   const newSess=document.getElementById('reviewSession').value;
   const newDateVal=document.getElementById('reviewDate').value;
   const newDT=buildDTFromReview();
+  const newPlace=document.getElementById('reviewPlace').value.trim();
 
   if(newSlot) S.slotNum=newSlot;
   if(newSess) S.sessionNum=newSess;
@@ -1059,6 +1129,7 @@ async function doUpload(){
     S.month=getMonthFromDate(newDateVal);
   }
   if(newDT) S.dateTime=newDT;
+  if(newPlace) S.place=newPlace;
   c.clientName=finalName;
 
   showScreen(7);
@@ -1068,15 +1139,17 @@ async function doUpload(){
     const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const W=210,H=297;
 
-    // 한글 폰트 등록
-    pdf.addFileToVFS('NanumGothic.ttf', NANUM_FONT_B64);
-    pdf.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
+    // 한글 폰트 등록 (NANUM_FONT_B64가 없으면 기본 폰트 사용)
+    if(typeof NANUM_FONT_B64 !== 'undefined' && NANUM_FONT_B64) {
+      pdf.addFileToVFS('NanumGothic.ttf', NANUM_FONT_B64);
+      pdf.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
+      pdf.setFont('NanumGothic');
+    }
 
     // 배경 이미지
     pdf.addImage(BG_IMAGE,'JPEG',0,0,W,H);
 
     // 텍스트 설정
-    pdf.setFont('NanumGothic');
     pdf.setFontSize(13);
     pdf.setTextColor(30,30,30);
 
@@ -1100,13 +1173,16 @@ async function doUpload(){
     pdf.addImage(c.sigUrl,'PNG', 156.2, 223.5, 47.9, 14.0);
     const b64=pdf.output('datauristring').split(',')[1];
     const masked=maskName(c.clientName);
-    const fileName=S.counselorNum+'-'+S.slotNum+'-'+S.sessionNum+'-'+masked+'.pdf';
+    // Fix 4: 파일명에 회차 텍스트 포함 (N회차 형식)
+    const sessionLabel=S.sessionNum+'회차';
+    const fileName=S.counselorNum+'-'+S.slotNum+'-'+sessionLabel+'-'+masked+'.pdf';
     document.getElementById('uploadMsg').textContent='Google Drive에 업로드 중...';
 
-    // 청크 분할 업로드 (50KB씩 나눠서 전송)
+    // 청크 분할 업로드 (65KB씩 나눠서 전송)
     const CHUNK = 65000;
     const totalChunks = Math.ceil(b64.length / CHUNK);
     const uploadId = 'up_' + Date.now() + '_' + Math.floor(Math.random()*99999);
+    let uploadSuccess = false;
 
     for(let ci=0; ci<totalChunks; ci++){
       document.getElementById('uploadMsg').textContent=
@@ -1120,7 +1196,9 @@ async function doUpload(){
         pendingKey: c.key
       });
       try{
-        await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:chunkBody});
+        const resp = await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:chunkBody});
+        const result = await resp.json().catch(()=>({}));
+        if(ci === totalChunks-1 && result && result.success) uploadSuccess = true;
       }catch(e){ /* 리다이렉트 무시 */ }
       // 청크 사이 짧은 대기
       if(ci < totalChunks-1) await new Promise(r=>setTimeout(r,300));
@@ -1128,7 +1206,7 @@ async function doUpload(){
 
     c.uploaded=true;
     showScreen(8);
-    const rows=[['파일명',fileName],['상담 일시',S.dateTime],['장소',S.place],['상담 회차',S.sessionNum+'회차'],['내담자 성명',c.clientName]];
+    const rows=[['파일명',fileName],['상담 일시',S.dateTime],['장소',S.place],['상담 회차',sessionLabel],['내담자 성명',c.clientName]];
     document.getElementById('doneRows').innerHTML=rows.map(([l,v])=>
       '<div class="irow"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>').join('');
     document.getElementById('doneStatus').innerHTML=
@@ -1157,7 +1235,7 @@ function resetAll(){
 // ═══════════ INIT ═══════════
 window.addEventListener('DOMContentLoaded',async ()=>{
   if(await loadCounselorMode())return;
-  if(loadClientMode())return;
+  if(await loadClientMode())return;
   showScreen(1);
 });
 </script>
