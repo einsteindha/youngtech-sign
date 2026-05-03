@@ -1067,15 +1067,37 @@ async function doUpload(){
     const{jsPDF}=window.jspdf;
     const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const W=210,H=297;
+
+    // 한글 폰트 등록
+    pdf.addFileToVFS('NanumGothic.ttf', NANUM_FONT_B64);
+    pdf.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
+
+    // 배경 이미지
     pdf.addImage(BG_IMAGE,'JPEG',0,0,W,H);
-    pdf.setFont('helvetica');pdf.setFontSize(10);pdf.setTextColor(26,32,44);
-    pdf.text(S.dateTime+'  /  '+S.place,W*.281,H*.153);
-    pdf.text(S.sessionNum+'회차',W*.281,H*.186);
-    // 서명 날짜: 서명 당일 기준
-    const now=new Date();
-    pdf.text(S.month,W*.487,H*.682);pdf.text(String(now.getDate()),W*.530,H*.682);
-    pdf.text(c.clientName,W*.744,H*.715);
-    pdf.addImage(c.sigUrl,'PNG',W*.744,H*.757,W*.228,H*.048);
+
+    // 텍스트 설정
+    pdf.setFont('NanumGothic');
+    pdf.setFontSize(13);
+    pdf.setTextColor(30,30,30);
+
+    // 정확한 좌표 (PPTX XML에서 추출)
+    // 일시 및 장소: x=59.0mm y=44.0mm
+    const datePlace = S.dateTime + '  /  ' + S.place;
+    pdf.text(datePlace, 59.0, 48.0);
+
+    // 상담회차: x=59.0mm y=54.0mm
+    pdf.text(S.sessionNum + '회차', 59.0, 58.0);
+
+    // 서명 날짜 (월/일): x=101.2mm y=199.8mm
+    const now = new Date();
+    pdf.text(String(S.month), 101.2, 204.0);
+    pdf.text(String(now.getDate()), 110.3, 204.0);
+
+    // 성명: x=156.2mm y=209.8mm
+    pdf.text(c.clientName, 156.2, 214.0);
+
+    // 서명 이미지: x=156.2mm y=223.5mm w=47.9mm h=14mm
+    pdf.addImage(c.sigUrl,'PNG', 156.2, 223.5, 47.9, 14.0);
     const b64=pdf.output('datauristring').split(',')[1];
     const masked=maskName(c.clientName);
     const fileName=S.counselorNum+'-'+S.slotNum+'-'+S.sessionNum+'-'+masked+'.pdf';
