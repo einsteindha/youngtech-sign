@@ -715,16 +715,10 @@ function sendSms(idx){
 
 // ═══════════ SCREEN 2 → 3: 대기 화면 ═══════════
 async function goToWait(){
-  // 각 내담자마다 GAS에 슬롯 예약
+  // key를 GAS 서버 없이 로컬에서 바로 생성 (CORS 문제 없음)
   for(let i=0;i<S.count;i++){
     if(!S.clients[i].key){
-      try{
-        const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({action:'reserve',meta:{counselorNum:S.counselorNum,slotNum:S.slotNum,
-            sessionNum:S.sessionNum,dateTime:S.dateTime,place:S.place,month:S.month,clientIndex:i+1}})});
-        const d=await r.json();
-        if(d.success)S.clients[i].key=d.key;
-      }catch(e){console.warn('reserve 실패',e);}
+      S.clients[i].key = 'sig_' + Date.now() + '_' + Math.floor(Math.random()*99999) + '_' + i;
     }
   }
   // 대기 화면 URL에 상담사 세션 저장 → 나갔다 돌아와도 복원
