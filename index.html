@@ -1150,21 +1150,22 @@ async function doUpload(){
     pdf.addImage(BG_IMAGE,'JPEG',0,0,W,H);
 
     // 텍스트 설정
-    pdf.setFontSize(13);
+    pdf.setFontSize(14);
     pdf.setTextColor(30,30,30);
 
-    // 정확한 좌표 (PPTX XML에서 추출)
-    // 일시 및 장소: x=59.0mm y=44.0mm
+    // 정확한 좌표 (PPTX XML에서 추출 + LibreOffice 렌더링 기준 보정)
+    // 일시 및 장소: x=59.0mm y=44.0mm (배경이미지와 맞춤)
     const datePlace = S.dateTime + '  /  ' + S.place;
     pdf.text(datePlace, 59.0, 48.0);
 
     // 상담회차: x=59.0mm y=54.0mm
     pdf.text(S.sessionNum + '회차', 59.0, 58.0);
 
-    // 서명 날짜 (월/일): x=101.2mm y=199.8mm
+    // 서명 날짜 (월/일): 2026. [월] [일] 형식에서 월/일 위치
+    // PPTX 기준: 월 x=110mm, 일 x=119mm, y=202mm
     const now = new Date();
-    pdf.text(String(S.month), 101.2, 204.0);
-    pdf.text(String(now.getDate()), 110.3, 204.0);
+    pdf.text(String(S.month)+'.', 105.0, 201.3);
+    pdf.text(String(now.getDate())+'.', 122.1, 201.3);
 
     // 성명: x=156.2mm y=209.8mm
     pdf.text(c.clientName, 156.2, 214.0);
