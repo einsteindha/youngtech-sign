@@ -1245,49 +1245,46 @@ async function doUpload(){
 
     const b64 = pdf.output('datauristring').split(',')[1];
     const masked = maskName(c.clientName);
-    // Fix 4: 파일명에 회차 텍스트 포함 (N회차 형식)
     const sessionLabel=S.sessionNum+'회차';
     const fileName=S.counselorNum+'-'+S.slotNum+'-'+sessionLabel+'-'+masked+'.pdf';
     document.getElementById('uploadMsg').textContent='Google Drive에 업로드 중...';
 
-    // 청크 분할 업로드 (65KB씩 나눠서 전송)
-    const CHUNK = 65000;
-    const totalChunks = Math.ceil(b64.length / CHUNK);
-    const uploadId = 'up_' + Date.now() + '_' + Math.floor(Math.random()*99999);
     let uploadSuccess = false;
-
-    for(let ci=0; ci<totalChunks; ci++){
-      document.getElementById('uploadMsg').textContent=
-        'Google Drive에 업로드 중... ('+(ci+1)+'/'+totalChunks+')';
-      const chunk = b64.slice(ci*CHUNK, (ci+1)*CHUNK);
-      const chunkBody = JSON.stringify({
-        action: 'uploadChunk',
-        uploadId, fileName,
+    try{
+      const body = JSON.stringify({
+        action: 'upload',
+        fileName: fileName,
         folderId: FOLDER_MAP[S.month]||'',
-        chunk, chunkIndex: ci, totalChunks,
+        fileData: b64,
         pendingKey: c.key
       });
-      try{
-        const resp = await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:chunkBody});
-        const result = await resp.json().catch(()=>({}));
-        if(ci === totalChunks-1 && result && result.success) uploadSuccess = true;
-      }catch(e){ /* 리다이렉트 무시 */ }
-      // 청크 사이 짧은 대기
-      if(ci < totalChunks-1) await new Promise(r=>setTimeout(r,300));
-    }
+      const resp = await fetch(GAS_URL,{
+        method:'POST',
+        headers:{'Content-Type':'text/plain'},
+        body: body,
+        redirect:'follow'
+      });
+      const result = await resp.json().catch(()=>({}));
+      if(result && result.success) uploadSuccess = true;
+    }catch(e){ /* CORS 리다이렉트 무시 */ }
 
-    c.uploaded=true;
     showScreen(8);
     const rows=[['파일명',fileName],['상담 일시',S.dateTime],['장소',S.place],['상담 회차',sessionLabel],['내담자 성명',c.clientName]];
     document.getElementById('doneRows').innerHTML=rows.map(([l,v])=>
       '<div class="irow"><span class="lbl">'+l+'</span><span class="val">'+v+'</span></div>').join('');
-    document.getElementById('doneStatus').innerHTML=
-      '<div style="font-size:32px">✅</div><p style="font-size:14px;margin-top:8px">Google Drive 업로드 완료!<br><strong>'+fileName+'</strong></p>';
+    if(uploadSuccess){
+      c.uploaded=true;
+      document.getElementById('doneStatus').innerHTML=
+        '<div style="font-size:32px">✅</div><p style="font-size:14px;margin-top:8px">Google Drive 업로드 완료!<br><strong>'+fileName+'</strong></p>';
+    }else{
+      document.getElementById('doneStatus').innerHTML=
+        '<div style="font-size:32px">❌</div><p style="font-size:14px;color:#c53030;margin-top:8px;">업로드 실패<br><span style="font-size:12px;color:#718096;">인터넷 연결을 확인하고 다시 시도해 주세요.</span></p>';
+    }
     buildClientCards();
   }catch(e){
     showScreen(8);
     document.getElementById('doneRows').innerHTML='';
-    document.getElementById('doneStatus').innerHTML='<div style="font-size:32px">❌</div><p style="font-size:14px;color:#c53030;">오류: '+e.message+'</p><p style="font-size:12px;color:#718096;margin-top:4px;">구글 드라이브를 확인해보세요. 실제로 업로드됐을 수 있습니다.</p>';
+    document.getElementById('doneStatus').innerHTML='<div style="font-size:32px">❌</div><p style="font-size:14px;color:#c53030;">오류: '+e.message+'</p>';
   }
 }
 
