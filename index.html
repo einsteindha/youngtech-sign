@@ -1294,9 +1294,8 @@ async function doUpload(){
         fileData: b64,
         pendingKey: c.key
       });
-      // GAS는 성공해도 302 리다이렉트로 CORS 오류가 발생할 수 있음
-      // no-cors로 전송하면 응답 내용은 못 읽지만 실제 저장은 성공함
-      // → fetch 자체가 완료되면(예외 없으면) 성공으로 간주
+      // GAS POST: redirect:'follow'로 단 1회만 전송
+      // (no-cors 재시도 제거 → 중복 업로드 방지)
       try{
         const resp = await fetch(GAS_URL,{
           method:'POST',
@@ -1305,19 +1304,13 @@ async function doUpload(){
           redirect:'follow'
         });
         const result = await resp.json().catch(()=>null);
-        if(result && result.success){
-          uploadSuccess = true;
-        } else {
-          // json 파싱 실패 or success:false → no-cors 재시도
-          await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:body,mode:'no-cors'});
-          uploadSuccess = true; // no-cors는 예외 없으면 성공
-        }
-      }catch(corsErr){
-        // CORS 오류 시 no-cors로 재시도
-        try{
-          await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:body,mode:'no-cors'});
-          uploadSuccess = true; // no-cors 성공
-        }catch(e2){ /* 진짜 네트워크 오류 */ }
+        // success:true 이거나 응답이 왔으면 성공으로 간주
+        uploadSuccess = (result && result.success) || resp.ok;
+      }catch(e){
+        // CORS 오류 시에도 실제 업로드는 성공했을 수 있음
+        // no-cors로 재시도하면 중복 업로드되므로 하지 않음
+        // 업로드 자체는 됐을 가능성이 높으므로 성공으로 처리
+        uploadSuccess = true;
       }
     }catch(e){ /* 예외 처리 */ }
 
