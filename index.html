@@ -522,6 +522,7 @@ canvas{display:block;width:100%;touch-action:none}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 // ═══════════ CONFIG ═══════════
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxdeAgpgCSaPM9LwxvIDTWF7EtfiB_EELWtciFIJpNlPSd8PRpGmfoYV5LTS59_fK2F/exec';
@@ -664,7 +665,11 @@ function buildSmsScreen(){
     card.id='previewCard'+i;  // ← 발송 후 제거를 위한 id
     card.innerHTML='<div class="ctitle">👁️ 문자 미리보기 · 내담자 '+(i+1)+'</div>'+
       '<div class="sms-pre" id="smsPreview'+i+'">4자리를 입력하면 미리보기가 표시됩니다.</div>'+
-      '<div style="font-size:11px;color:#718096;margin-top:6px;text-align:center">수신번호: <strong>1555-7355</strong></div>';
+      '<div style="font-size:11px;color:#718096;margin-top:6px;text-align:center">수신번호: <strong>1555-7355</strong></div>'+
+      '<hr style="border:none;border-top:1px solid #e2e8f0;margin:10px 0">'+
+      '<div class="ctitle" style="margin-bottom:6px">📱 QR코드 (대면 접속용)</div>'+
+      '<div id="qrWrap'+i+'" style="display:flex;justify-content:center;padding:8px 0"></div>'+
+      '<div style="font-size:11px;color:#718096;text-align:center;margin-top:4px">내담자가 카메라로 스캔하면 바로 접속됩니다</div>';
     pw.appendChild(card);
   }
 
@@ -688,6 +693,22 @@ function refreshPreviews(){
     if(extra)msg+=extra+'\n';
     msg+='\n아래 링크에서 성명과 서명을 작성해 주세요:\n'+url;
     el.textContent=msg;
+
+    // QR코드 생성/갱신
+    const qrWrap = document.getElementById('qrWrap'+i);
+    if(qrWrap && url && url.indexOf('...') === -1){
+      qrWrap.innerHTML = ''; // 기존 QR 초기화
+      try{
+        new QRCode(qrWrap, {
+          text: url,
+          width: 160,
+          height: 160,
+          colorDark: '#1a202c',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }catch(e){ qrWrap.textContent = 'QR 생성 오류'; }
+    }
   }
 }
 
