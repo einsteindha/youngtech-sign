@@ -1064,16 +1064,38 @@ async function submitSig(){
   const imgData=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;
   const blank=!Array.from(imgData).some((v,i)=>i%4===3&&v>10);  // 알파값으로 체크
   if(blank){alert('서명을 먼저 해주세요.');return;}
-  const sigUrl=cv.toDataURL('image/png');
-  S.clients[S.reviewing].clientName=name;
-  S.clients[S.reviewing].sigUrl=sigUrl;
+  // 고화질 sigUrl (로컬 PDF 생성용)
+  const sigUrl = cv.toDataURL('image/png');
+  S.clients[S.reviewing].clientName = name;
+  S.clients[S.reviewing].sigUrl = sigUrl;
   showScreen('5b');
   try{
-    const c=S.clients[S.reviewing];
-    const body=JSON.stringify({action:'save',key:c.key,payload:{
-      counselorNum:S.counselorNum,slotNum:S.slotNum,sessionNum:S.sessionNum,
-      dateTime:S.dateTime,place:S.place,month:S.month,
-      clientName:c.clientName,signatureDataUrl:sigUrl,signed:true}});
+    const c = S.clients[S.reviewing];
+
+    // GAS 전송용 압축 서명 (9KB 이하로 맞춤)
+    // ScriptProperties 한 값 최대 9000bytes → JPEG 소형으로 압축
+    const compressedSig = (function(){
+      const oc = document.createElement('canvas');
+      oc.width = 240; oc.height = 80;
+      const ox = oc.getContext('2d');
+      ox.fillStyle = '#fff';
+      ox.fillRect(0, 0, 240, 80);
+      ox.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, 240, 80);
+      // 품질을 낮춰가며 9000bytes 이하로 맞춤
+      let q = 0.5, dataUrl = '';
+      while(q >= 0.1){
+        dataUrl = oc.toDataURL('image/jpeg', q);
+        const b64 = dataUrl.split(',')[1] || '';
+        if(b64.length <= 9000) break;
+        q -= 0.1;
+      }
+      return dataUrl;
+    })();
+
+    const body = JSON.stringify({action:'save', key:c.key, payload:{
+      counselorNum:S.counselorNum, slotNum:S.slotNum, sessionNum:S.sessionNum,
+      dateTime:S.dateTime, place:S.place, month:S.month,
+      clientName:c.clientName, signatureDataUrl:compressedSig, signed:true}});
 
     // GAS POST: redirect:'follow' 시도 → 실패 시 no-cors 폴백
     let saveSent = false;
