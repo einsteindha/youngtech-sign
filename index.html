@@ -1087,8 +1087,8 @@ async function doUpload(){
     const masked=maskName(c.clientName);
     const fileName=S.counselorNum+'-'+S.slotNum+'-'+S.sessionNum+'-'+masked+'.pdf';
     document.getElementById('uploadMsg').textContent='Google Drive에 업로드 중...';
-    const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'upload',fileName,folderId:FOLDER_MAP[S.month]||'',fileData:b64,pendingKey:c.key})});
+    const uploadBody=JSON.stringify({action:'upload',fileName,folderId:FOLDER_MAP[S.month]||'',fileData:b64,pendingKey:c.key});
+    const r=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:uploadBody});
     const res=await r.json();
     c.uploaded=!!res.success;
     showScreen(8);
