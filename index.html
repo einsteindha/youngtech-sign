@@ -1023,8 +1023,16 @@ async function submitSig(){
       dateTime:S.dateTime,place:S.place,month:S.month,
       clientName:c.clientName,signatureDataUrl:sigUrl,signed:true}});
 
-    // CORS 우회: no-cors 모드로 전송 (응답 못 받지만 저장은 됨)
-    await fetch(GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body});
+    // 일반 fetch로 전송 (GAS가 CORS 허용)
+    const resp = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body
+    });
+    // no-cors가 아니므로 응답 확인 가능
+    let result = { success: true };
+    try { result = await resp.json(); } catch(e) {}
+    if (result.success === false) throw new Error(result.error || '저장 실패');
 
     const rows=[['상담 일시',S.dateTime],['장소',S.place],['내담자 성명',c.clientName]];
     document.getElementById('clientDoneInfo').innerHTML=rows.map(([l,v])=>
