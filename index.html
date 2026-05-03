@@ -521,6 +521,7 @@ canvas{display:block;width:100%;touch-action:none}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
 // ═══════════ CONFIG ═══════════
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxdeAgpgCSaPM9LwxvIDTWF7EtfiB_EELWtciFIJpNlPSd8PRpGmfoYV5LTS59_fK2F/exec';
@@ -1135,45 +1136,112 @@ async function doUpload(){
   showScreen(7);
   document.getElementById('uploadMsg').textContent='PDF를 생성하고 있습니다...';
   try{
-    const{jsPDF}=window.jspdf;
-    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const W=210,H=297;
+    // ── HTML 오버레이 방식: 브라우저 한글 렌더링 그대로 사용 ──
+    // A4 = 210mm x 297mm → 96dpi 기준 794 x 1123px (scale=2 → 1588x2246)
+    const SCALE = 2;
+    const PX_W = 794 * SCALE;  // 1588px
+    const PX_H = 1123 * SCALE; // 2246px
 
-    // 한글 폰트 등록 (NANUM_FONT_B64가 없으면 기본 폰트 사용)
-    if(typeof NANUM_FONT_B64 !== 'undefined' && NANUM_FONT_B64) {
-      pdf.addFileToVFS('NanumGothic.ttf', NANUM_FONT_B64);
-      pdf.addFont('NanumGothic.ttf', 'NanumGothic', 'normal');
-      pdf.setFont('NanumGothic');
-    }
+    // 오버레이 컨테이너 생성
+    const overlay = document.createElement('div');
+    overlay.style.cssText = [
+      'position:fixed', 'left:-9999px', 'top:0',
+      `width:${PX_W}px`, `height:${PX_H}px`,
+      'overflow:hidden', 'z-index:-1',
+      'background:white',
+      'font-family:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic","나눔고딕",sans-serif'
+    ].join(';');
 
     // 배경 이미지
-    pdf.addImage(BG_IMAGE,'JPEG',0,0,W,H);
+    const bgImg = document.createElement('img');
+    bgImg.src = BG_IMAGE;
+    bgImg.style.cssText = `position:absolute;left:0;top:0;width:${PX_W}px;height:${PX_H}px;`;
 
-    // 텍스트 설정
-    pdf.setFontSize(14);
-    pdf.setTextColor(30,30,30);
-
-    // 정확한 좌표 (PPTX XML에서 추출 + LibreOffice 렌더링 기준 보정)
-    // 일시 및 장소: x=59.0mm y=44.0mm (배경이미지와 맞춤)
-    const datePlace = S.dateTime + '  /  ' + S.place;
-    pdf.text(datePlace, 59.0, 48.0);
-
-    // 상담회차: x=59.0mm y=54.0mm
-    pdf.text(S.sessionNum + '회차', 59.0, 58.0);
-
-    // 서명 날짜 (월/일): 2026. [월] [일] 형식에서 월/일 위치
-    // PPTX 기준: 월 x=110mm, 일 x=119mm, y=202mm
+    // 텍스트 배치 헬퍼 (mm → px)
+    const mm2px = v => Math.round(v / 210 * PX_W);
     const now = new Date();
-    pdf.text(String(S.month)+'.', 105.0, 201.3);
-    pdf.text(String(now.getDate())+'.', 122.1, 201.3);
 
-    // 성명: x=156.2mm y=209.8mm
-    pdf.text(c.clientName, 156.2, 214.0);
+    const texts = [
+      // [텍스트, left_mm, top_mm, fontSize_px, color, letterSpacing]
+      [S.dateTime + '  /  ' + S.place, 59.0, 44.5, 14, '#1a1a1a', ''],
+      [S.sessionNum + '회차',            59.0, 54.5, 14, '#1a1a1a', ''],
+      [String(S.month) + '.',            105.0, 198.8, 14, '#1a1a1a', ''],
+      [String(now.getDate()) + '.',      122.1, 198.8, 14, '#1a1a1a', ''],
+      [c.clientName,                     156.2, 210.5, 14, '#1a1a1a', ''],
+    ];
 
-    // 서명 이미지: x=156.2mm y=223.5mm w=47.9mm h=14mm
-    pdf.addImage(c.sigUrl,'PNG', 156.2, 223.5, 47.9, 14.0);
-    const b64=pdf.output('datauristring').split(',')[1];
-    const masked=maskName(c.clientName);
+    const els = [];
+    for(const [txt, lmm, tmm, fs, col] of texts){
+      const el = document.createElement('div');
+      el.textContent = txt;
+      el.style.cssText = [
+        'position:absolute',
+        `left:${mm2px(lmm)}px`,
+        `top:${mm2px(tmm)}px`,
+        `font-size:${fs * SCALE}px`,
+        `color:${col}`,
+        'white-space:nowrap',
+        'line-height:1',
+        'font-family:inherit',
+      ].join(';');
+      els.push(el);
+    }
+
+    // 서명 이미지 (c.sigUrl)
+    const sigEl = document.createElement('img');
+    sigEl.src = c.sigUrl;
+    sigEl.style.cssText = [
+      'position:absolute',
+      `left:${mm2px(156.2)}px`,
+      `top:${mm2px(223.5)}px`,
+      `width:${mm2px(47.9)}px`,
+      `height:${mm2px(14.0)}px`,
+      'object-fit:contain',
+    ].join(';');
+
+    overlay.appendChild(bgImg);
+    els.forEach(e => overlay.appendChild(e));
+    overlay.appendChild(sigEl);
+    document.body.appendChild(overlay);
+
+    // 배경 이미지 로드 대기
+    await new Promise(res => {
+      if(bgImg.complete) res();
+      else { bgImg.onload = res; bgImg.onerror = res; }
+    });
+    // 서명 이미지 로드 대기
+    await new Promise(res => {
+      if(sigEl.complete) res();
+      else { sigEl.onload = res; sigEl.onerror = res; }
+    });
+    // 폰트 로드 대기
+    await document.fonts.ready;
+    // 렌더링 안정화 대기
+    await new Promise(r => setTimeout(r, 300));
+
+    document.getElementById('uploadMsg').textContent='이미지 캡처 중...';
+
+    // html2canvas로 캡처
+    const canvas = await html2canvas(overlay, {
+      scale: 1,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: PX_W,
+      height: PX_H,
+      logging: false,
+    });
+
+    document.body.removeChild(overlay);
+
+    // jsPDF에 캔버스 이미지 삽입
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+
+    const b64 = pdf.output('datauristring').split(',')[1];
+    const masked = maskName(c.clientName);
     // Fix 4: 파일명에 회차 텍스트 포함 (N회차 형식)
     const sessionLabel=S.sessionNum+'회차';
     const fileName=S.counselorNum+'-'+S.slotNum+'-'+sessionLabel+'-'+masked+'.pdf';
