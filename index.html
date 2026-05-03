@@ -1165,8 +1165,10 @@ async function doUpload(){
       // [텍스트, left_mm, top_mm, fontSize_px, color, letterSpacing]
       [S.dateTime + '  /  ' + S.place, 59.0, 44.5, 14, '#1a1a1a', ''],
       [S.sessionNum + '회차',            59.0, 54.5, 14, '#1a1a1a', ''],
-      [String(S.month) + '.',            105.0, 198.8, 14, '#1a1a1a', ''],
-      [String(now.getDate()) + '.',      122.1, 198.8, 14, '#1a1a1a', ''],
+      // 서명 날짜: 상담 예약일(consultDate) 기준
+      const consultD = S.consultDate ? new Date(S.consultDate) : new Date();
+      [String(consultD.getMonth() + 1) + '.', 105.0, 198.8, 14, '#1a1a1a', ''],
+      [String(consultD.getDate()) + '.',       122.1, 198.8, 14, '#1a1a1a', ''],
       [c.clientName,                     156.2, 210.5, 14, '#1a1a1a', ''],
     ];
 
