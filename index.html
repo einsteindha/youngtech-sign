@@ -911,8 +911,6 @@ async function checkAllStatus(){
   for(let i=0;i<S.clients.length;i++){
     if(S.clients[i].key&&!S.clients[i].uploaded){
       await checkOne(i);
-      // GAS Rate Limit 방지: 요청 사이 300ms 간격
-      if(i < S.clients.length-1) await new Promise(r=>setTimeout(r,300));
     }
   }
   buildClientCards();
@@ -922,24 +920,24 @@ async function checkAllStatus(){
 async function checkOne(i){
   const c=S.clients[i];
   if(!c.key)return;
-  // 최대 3회 재시도, 실패마다 1.5초 대기
-  for(let attempt=0; attempt<3; attempt++){
-    try{
-      const r=await fetch(GAS_URL+'?action=get&key='+encodeURIComponent(c.key));
-      const d=await r.json();
-      if(d.success&&d.payload&&d.payload.signed){
-        c.signed=true;
-        c.clientName=d.payload.clientName||c.clientName;
-        c.sigUrl=d.payload.signatureDataUrl||'';
-        return; // 성공 시 즉시 종료
-      }
-      // signed:false 또는 데이터 없음 → 재시도 불필요
-      return;
-    }catch(e){
-      console.warn('checkOne 실패 (시도 '+(attempt+1)+'/3)',e);
-      if(attempt<2) await new Promise(r=>setTimeout(r,1500)); // 1.5초 대기 후 재시도
+  try{
+    const r = await fetch(GAS_URL+'?action=get&key='+encodeURIComponent(c.key));
+    // GAS가 이중 직렬화로 깨진 응답을 보낼 수 있으므로 text()로 받아 직접 파싱
+    const text = await r.text();
+    let d = null;
+    try{ d = JSON.parse(text); }catch(e1){
+      // 이중 직렬화된 경우: "{"success":true,...}" 형태의 문자열이 또 JSON에 감싸져 있을 수 있음
+      try{
+        const inner = JSON.parse(JSON.parse(text));
+        d = inner;
+      }catch(e2){}
     }
-  }
+    if(d && d.success && d.payload && d.payload.signed){
+      c.signed=true;
+      c.clientName=d.payload.clientName||c.clientName;
+      c.sigUrl=d.payload.signatureDataUrl||'';
+    }
+  }catch(e){console.warn('checkOne 실패',e);}
 }
 
 // ═══════════ 자동 새로고침 ═══════════
