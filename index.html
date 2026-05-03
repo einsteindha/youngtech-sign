@@ -617,7 +617,8 @@ function goToSms(){
 
   S.clients=[];
   for(let i=0;i<S.count;i++){
-    S.clients.push({code:'',key:'',signed:false,clientName:'',sigUrl:'',uploaded:false});
+    const key='sig_'+Date.now()+'_'+Math.floor(Math.random()*99999)+'_'+i;
+    S.clients.push({code:'',key:key,signed:false,clientName:'',sigUrl:'',uploaded:false});
   }
 
   buildSmsScreen();
