@@ -905,8 +905,7 @@ async function checkOne(i){
     if(d.success&&d.payload&&d.payload.signed){
       c.signed=true;
       c.clientName=d.payload.clientName||c.clientName;
-      // sigUrl은 로컬 state가 있으면 우선 유지 (GAS는 CORS로 sigUrl을 못 받을 수 있음)
-      if(!c.sigUrl) c.sigUrl=d.payload.signatureDataUrl||'';
+      c.sigUrl=d.payload.signatureDataUrl||'';
     }
   }catch(e){console.warn('checkOne 실패',e);}
 }
@@ -1062,7 +1061,8 @@ async function submitSig(){
   const name=document.getElementById('clientName').value.trim();
   if(!name){alert('성명을 입력해주세요.');return;}
   const cv=document.getElementById('sigCanvas');
-  const blank=!cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data.some(v=>v!==0);
+  const imgData=cv.getContext('2d').getImageData(0,0,cv.width,cv.height).data;
+  const blank=!Array.from(imgData).some((v,i)=>i%4===3&&v>10);  // 알파값으로 체크
   if(blank){alert('서명을 먼저 해주세요.');return;}
   const sigUrl=cv.toDataURL('image/png');
   S.clients[S.reviewing].clientName=name;
@@ -1075,10 +1075,23 @@ async function submitSig(){
       dateTime:S.dateTime,place:S.place,month:S.month,
       clientName:c.clientName,signatureDataUrl:sigUrl,signed:true}});
 
-    // GAS는 302 리다이렉트로 응답하지만 실제 저장은 성공함
+    // GAS POST: redirect:'follow' 시도 → 실패 시 no-cors 폴백
+    let saveSent = false;
     try{
-      await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body});
-    }catch(e){ /* 리다이렉트 오류 무시 */ }
+      const resp = await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body,redirect:'follow'});
+      const result = await resp.json().catch(()=>null);
+      if(result && result.success){ saveSent=true; }
+      else{
+        await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body,mode:'no-cors'});
+        saveSent=true;
+      }
+    }catch(e){
+      try{
+        await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body,mode:'no-cors'});
+        saveSent=true;
+      }catch(e2){ saveSent=false; }
+    }
+    if(!saveSent){ throw new Error('서버 전송 실패'); }
 
     const rows=[['상담 일시',S.dateTime],['장소',S.place],['내담자 성명',c.clientName]];
     document.getElementById('clientDoneInfo').innerHTML=rows.map(([l,v])=>
