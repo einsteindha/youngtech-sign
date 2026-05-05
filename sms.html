@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>문자 발송</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f0f3fb;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:20px;padding:28px 22px;width:100%;max-width:400px;box-shadow:0 3px 20px rgba(0,0,60,.09);text-align:center}
+.icon{font-size:48px;margin-bottom:12px}
+.title{font-size:18px;font-weight:700;color:#1a2264;margin-bottom:8px}
+.to-num{font-size:28px;font-weight:700;color:#1a7a40;margin:16px 0;padding:14px;background:#f0fff4;border-radius:12px;letter-spacing:2px}
+.to-label{font-size:12px;color:#888;margin-bottom:4px}
+.btn{display:block;width:100%;padding:15px;background:#1a7a40;color:#fff;border:none;border-radius:13px;font-size:17px;font-weight:700;text-decoration:none;margin-top:16px;cursor:pointer}
+.btn:active{opacity:.85}
+.hint{font-size:12px;color:#aaa;margin-top:12px;line-height:1.6}
+.preview{background:#f7f9ff;border-radius:10px;padding:12px;margin:14px 0;text-align:left;font-size:12px;color:#444;line-height:1.7;word-break:break-all;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon">💬</div>
+  <div class="title">문자 발송</div>
+  <div class="to-label">받는 사람</div>
+  <div class="to-num" id="toNum">1555-7355</div>
+  <div class="preview" id="bodyPreview"></div>
+  <a class="btn" id="smsBtn">메시지앱 열기</a>
+  <div class="hint">버튼을 탭하면 메시지앱이 열립니다.<br>받는 사람이 자동으로 입력됩니다.</div>
+</div>
+
+<script>
+function getParam(name) {
+  var url = new URL(window.location.href);
+  return url.searchParams.get(name) || '';
+}
+
+var to   = getParam('to')   || '1555-7355';
+var body = getParam('body') || '';
+
+document.getElementById('toNum').textContent    = to;
+document.getElementById('bodyPreview').textContent = body;
+
+var ua      = navigator.userAgent || '';
+var smsHref = /Android/.test(ua)
+  ? 'sms:' + to + '?body=' + encodeURIComponent(body)
+  : 'sms:' + to + '&body=' + encodeURIComponent(body);
+
+var btn = document.getElementById('smsBtn');
+btn.href = smsHref;
+
+// 페이지 로드 시 자동으로 메시지앱 열기 시도
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    window.location.href = smsHref;
+  }, 800);
+});
+</script>
+</body>
+</html>
