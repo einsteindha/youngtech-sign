@@ -677,9 +677,44 @@ function buildSmsScreen(){
   refreshPreviews();
 }
 
+// 날짜 압축: "2026년 5월 5일 오후 7시 00분" → "05051900" (월일시분, 24h)
+function encodeDT(dt){
+  if(!dt)return '';
+  const mo=dt.match(/(\d+)월/);
+  const da=dt.match(/(\d+)일/);
+  const hr=dt.match(/(\d+)시/);
+  const mn=dt.match(/(00|30)분/);
+  if(!mo||!da||!hr)return dt;
+  let h=parseInt(hr[1]);
+  if(dt.includes('오후')&&h!==12)h+=12;
+  if(dt.includes('오전')&&h===12)h=0;
+  return mo[1].padStart(2,'0')+da[1].padStart(2,'0')+String(h).padStart(2,'0')+(mn?mn[1]:'00');
+}
+
+// 날짜 복원: "05051900" → "2026년 5월 5일 오후 7시 00분"
+function decodeDT(code){
+  if(!code||code.length!==8||!/^\d{8}$/.test(code))return '';
+  const mo=parseInt(code.slice(0,2));
+  const da=parseInt(code.slice(2,4));
+  const h=parseInt(code.slice(4,6));
+  const mn=code.slice(6,8);
+  const ampm=h<12?'오전':'오후';
+  const h12=h===0?12:h>12?h-12:h;
+  return '2026년 '+mo+'월 '+da+'일 '+ampm+' '+h12+'시 '+mn+'분';
+}
+
+// 키 단축: "sig_1777975373058_12377_0" → "sig_abc123x_0"
+function shortKey(key){
+  const parts=key.split('_'); // ['sig','timestamp','rand','idx']
+  if(parts.length<4)return key;
+  const ts=parseInt(parts[1])%1000000;
+  const rnd=parseInt(parts[2]);
+  return 'sig_'+ts.toString(36)+rnd.toString(36)+'_'+parts[3];
+}
+
 function getClientUrl(key){
   const base=location.href.split('?')[0];
-  const p=new URLSearchParams({mode:'client',c:S.counselorNum,s:S.slotNum,n:S.sessionNum,d:S.dateTime,p:S.place,m:S.month,k:key});
+  const p=new URLSearchParams({mode:'client',c:S.counselorNum,s:S.slotNum,n:S.sessionNum,d:encodeDT(S.dateTime),p:S.place,m:S.month,k:shortKey(key)});
   return base+'?'+p.toString();
 }
 
@@ -978,7 +1013,7 @@ async function loadClientMode(){
   const p=new URLSearchParams(location.search);
   if(p.get('mode')!=='client')return false;
   S.counselorNum=p.get('c')||'';S.slotNum=p.get('s')||'';S.sessionNum=p.get('n')||'';
-  S.dateTime=p.get('d')||'';S.place=p.get('p')||'';S.month=p.get('m')||'';
+  const dRaw=p.get('d')||'';S.dateTime=decodeDT(dRaw)||dRaw;S.place=p.get('p')||'';S.month=p.get('m')||'';
   const key=p.get('k')||'';
   S.clients=[{code:'',key:key,signed:false,clientName:'',sigUrl:'',uploaded:false}];
   S.reviewing=0;
