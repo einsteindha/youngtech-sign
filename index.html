@@ -727,7 +727,7 @@ function refreshPreviews(){
     const url=getClientUrl(S.clients[i]?.key||'...');
     let msg=code+', [서울 영테크 재무상담 확인서]\n';
     if(extra)msg+=extra+'\n';
-    msg+='\n아래 링크에서 성명과 서명을 작성해 주세요:\n'+url;
+    msg+='\n아래 링크에서 성명과 서명을 작성해 주세요:\n'+url+'\n서울영테크 상담사 정원준';
     el.textContent=msg;
 
     // QR코드 생성/갱신
@@ -758,7 +758,7 @@ function sendSms(idx){
   const url=getClientUrl(S.clients[idx].key);
   let body=code+', [서울 영테크 재무상담 확인서]\n';
   if(extra)body+=extra+'\n';
-  body+='\n아래 링크에서 성명과 서명을 작성해 주세요:\n'+url;
+  body+='\n아래 링크에서 성명과 서명을 작성해 주세요:\n'+url+'\n서울영테크 상담사 정원준';
   // 문자앱 열기 (화면 이동 없이)
   window.location.href='sms:1555-7355?body='+encodeURIComponent(body);
   // 버튼을 "발송 완료"로 변경
