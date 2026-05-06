@@ -714,7 +714,7 @@ function shortKey(key){
 
 function getClientUrl(key){
   const base=location.href.split('?')[0];
-  const p=new URLSearchParams({mode:'client',c:S.counselorNum,s:S.slotNum,n:S.sessionNum,d:encodeDT(S.dateTime),p:S.place,m:S.month,k:shortKey(key)});
+  const p=new URLSearchParams({mode:'client',c:S.counselorNum,s:S.slotNum,n:S.sessionNum,d:encodeDT(S.dateTime),p:S.place,m:S.month,k:key});
   return base+'?'+p.toString();
 }
 
